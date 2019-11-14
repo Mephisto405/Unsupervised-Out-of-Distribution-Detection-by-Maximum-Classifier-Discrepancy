@@ -1,6 +1,11 @@
 # Unsupervised Out-of-Distribution Detection by Maximum Classifier Discrepancy
  Reproducing experimental results of OOD-by-MCD [Yu et al. ICCV 2019]
 
+# *Caution: Work-in-progress
+ There might be some lines of code or comments that I do not quote correctly yet. 
+ 
+ I will quote them as soon as possible. Sorry.
+
 # Reproduced Results
 
 # Requirements
