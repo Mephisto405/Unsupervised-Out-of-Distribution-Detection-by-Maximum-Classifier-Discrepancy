@@ -62,8 +62,10 @@ iters = 0
 def DiscrepancyLoss(input_1, input_2, m = 1.2):
     soft_1 = nn.functional.softmax(input_1, dim=1)
     soft_2 = nn.functional.softmax(input_2, dim=1)
-    entropy_1 = soft_1 * nn.functional.log_softmax(input_1, dim=1)
-    entropy_2 = soft_2 * nn.functional.log_softmax(input_2, dim=1)
+    entropy_1 = - soft_1 * nn.functional.log_softmax(input_1, dim=1)
+    entropy_2 = - soft_2 * nn.functional.log_softmax(input_2, dim=1)
+    entropy_1 = torch.sum(entropy_1, dim=1)
+    entropy_2 = torch.sum(entropy_2, dim=1)
 
     loss = torch.nn.ReLU()(m - torch.mean(entropy_1 - entropy_2))
     return loss
@@ -161,7 +163,7 @@ def train(model, criterions, optimizer, scheduler, dataloaders, num_epochs, vis,
 def fine_tune(model, criterions, optimizer, scheduler, dataloaders, num_epochs=10, vis=None):
     print('>> Fine-tune a Model.')
     best_roc = 0.0
-    checkpoint_dir = os.path.join('./cifar10', 'pre-train', 'weights')
+    checkpoint_dir = os.path.join('./cifar10', 'fine-tune', 'weights')
     model_name = 'unsup_ckp'
     if not os.path.exists(checkpoint_dir):
         os.makedirs(checkpoint_dir)
@@ -185,8 +187,8 @@ def fine_tune(model, criterions, optimizer, scheduler, dataloaders, num_epochs=1
             # step A
             optimizer.zero_grad()
             out_1, out_2 = model(sup_inputs)
-            loss = criterions['sup'](out_1, sup_labels) + criterions['sup'](out_2, sup_labels)
-            loss.backward()
+            loss_sup = criterions['sup'](out_1, sup_labels) + criterions['sup'](out_2, sup_labels)
+            loss_sup.backward()
             optimizer.step()
 
             # step B
@@ -195,7 +197,7 @@ def fine_tune(model, criterions, optimizer, scheduler, dataloaders, num_epochs=1
             loss_sup = criterions['sup'](out_1, sup_labels) + criterions['sup'](out_2, sup_labels)
             out_1, out_2 = model(unsup_inputs)
             loss_unsup = criterions['unsup'](out_1, out_2)
-            loss = loss_sup + loss_unsup
+            loss = loss_unsup # + loss_sup
             loss.backward()
             optimizer.step()
 
@@ -233,7 +235,7 @@ def fine_tune(model, criterions, optimizer, scheduler, dataloaders, num_epochs=1
                 out_1, out_2 = model(inputs)
                 score_1 = nn.functional.softmax(out_1, dim=1)
                 score_2 = nn.functional.softmax(out_2, dim=1)
-                dist = torch.sum(torch.abs(score_1 - score_2)).reshape((label.shape[0], ))
+                dist = torch.sum(torch.abs(score_1 - score_2), dim=1).reshape((label.shape[0], ))
 
                 dists[i*label.shape[0]:(i+1)*label.shape[0]] = dist
                 labels[i*label.shape[0]:(i+1)*label.shape[0]] = label.reshape((label.shape[0], ))
@@ -285,7 +287,6 @@ if __name__ == '__main__':
     criterions = {'sup': sup_criterion, 'unsup': unsup_criterion}
 
     """ Pre-training
-    """
     optimizer = optim.SGD(two_head_net.parameters(), lr=LR, 
                           momentum=MOMENTUM, weight_decay=WDECAY)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=MILESTONES)
@@ -302,11 +303,16 @@ if __name__ == '__main__':
         'state_dict': two_head_net.state_dict()
     },
     './cifar10/pre-train/weights/two_head_cifar10.pth')
+    """
 
     """ Fine-tuning
     """
     checkpoint = torch.load('./cifar10/pre-train/weights/two_head_cifar10.pth')
     two_head_net.load_state_dict(checkpoint['state_dict'])
+
+    acc_1, acc_2 = test(two_head_net, dataloaders, mode='sup_test')
+
+    print('Test acc {}, {}'.format(acc_1, acc_2))
 
     optimizer = optim.SGD(two_head_net.parameters(), lr=LR, 
                           momentum=MOMENTUM, weight_decay=WDECAY)
