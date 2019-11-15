@@ -19,20 +19,28 @@ class TINr(data.Dataset):
     Data source: https://github.com/facebookresearch/odin
     '''
 
-    def __init__(self, root='../Imagenet_resize/Imagenet_resize'):
+    def __init__(self, root='../Imagenet_resize/Imagenet_resize', train=True, transform=None):
         self.root = root
+        self.transform = transform
         self.data = []
         for i in range(10000):
             img = Image.open(self.root + '/{}.jpg'.format(i)).convert(mode='RGB')
             np_img = np.array(img)
             self.data.append(np_img)
         self.data = np.vstack(self.data).reshape(-1, 32, 32, 3)
+        if train:
+            self.data = self.data[:9000]
+        else:
+            self.data = self.data[9000:]
     
     def __len__(self):
         return len(self.data)
     
     def __getitem__(self, index):
-        return self.data[index], OOD
+        img = self.data[index]
+        if self.transform is not None:
+            img = self.transform(img)
+        return img, OOD
 
 ##
 class UnsupData(data.Dataset):

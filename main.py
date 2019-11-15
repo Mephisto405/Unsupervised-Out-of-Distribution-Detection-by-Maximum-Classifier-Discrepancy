@@ -19,8 +19,9 @@ from torch.utils.data.sampler import SubsetRandomSampler
 
 # Torchvison
 import torchvision.transforms as T
-import torchvision.models as models
 from torchvision.datasets import CIFAR100, CIFAR10
+import matplotlib.pyplot as plt
+from sklearn.neighbors import KernelDensity
 
 # Utils
 import visdom
@@ -252,6 +253,56 @@ def fine_tune(model, criterions, optimizer, scheduler, dataloaders, num_epochs=1
             '{}/{}.pth'.format(checkpoint_dir, model_name))
     print('>> Finished.')
 
+#
+def test2(model, dataloaders, mode='unsup_train'):
+    model.eval()
+    if mode == 'unsup_train':
+        num = 18000
+    else:
+        num = 2000
+    labels = torch.zeros((num, )).cuda() # a big tensor
+    discs = torch.zeros((num, )).cuda() # discrepancy (or distance)
+    with torch.no_grad():
+        for i, (input, label) in enumerate(dataloaders[mode]):
+            inputs = input.cuda()
+            label = label.cuda()
+
+            out_1, out_2 = model(inputs)
+            score_1 = nn.functional.softmax(out_1, dim=1)
+            score_2 = nn.functional.softmax(out_2, dim=1)
+            disc = torch.sum(torch.abs(score_1 - score_2), dim=1).reshape((label.shape[0], ))
+
+            discs[i*label.shape[0]:(i+1)*label.shape[0]] = disc
+            labels[i*label.shape[0]:(i+1)*label.shape[0]] = label.reshape((label.shape[0], ))
+    
+    #labels = 1 - labels
+
+    labels = labels.cpu()
+    discs = discs.cpu()
+
+    roc = evaluate(labels, discs, metric='roc')
+    print('Test AUROC: {:.3f}'.format(roc))
+
+    id_discs = discs[labels == 0].reshape(-1,1)
+    ood_discs = discs[labels == 1].reshape(-1,1)
+
+    fig, ax = plt.subplots(tight_layout=True)
+    names = ['ID Discrepancy', 'OOD Discrepancy']
+    X_plot = np.linspace(0, discs.max(), 1000)[:, np.newaxis]
+
+    for i, X in enumerate([id_discs, ood_discs]):
+        kde = KernelDensity(kernel='gaussian', bandwidth=discs.max()/50).fit(X)
+        log_dens = kde.score_samples(X_plot)
+        ax.plot(X_plot[:, 0], np.exp(log_dens) / 100., '-', label=names[i])
+    
+    ax.set_title('Discrepancy distribution')
+    ax.set_xlim(0.0, discs.max())
+    ax.legend(loc='upper right')
+
+    fig.savefig('./score distribution.png', dpi=400)
+    plt.close(fig)
+
+    return roc
 
 ##
 # Main
@@ -287,6 +338,7 @@ if __name__ == '__main__':
     criterions = {'sup': sup_criterion, 'unsup': unsup_criterion}
 
     """ Pre-training
+    """
     optimizer = optim.SGD(two_head_net.parameters(), lr=LR, 
                           momentum=MOMENTUM, weight_decay=WDECAY)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=MILESTONES)
@@ -303,10 +355,8 @@ if __name__ == '__main__':
         'state_dict': two_head_net.state_dict()
     },
     './cifar10/pre-train/weights/two_head_cifar10.pth')
-    """
 
     """ Fine-tuning
-    """
     checkpoint = torch.load('./cifar10/pre-train/weights/two_head_cifar10.pth')
     two_head_net.load_state_dict(checkpoint['state_dict'])
 
@@ -320,3 +370,14 @@ if __name__ == '__main__':
     
     fine_tune(two_head_net, criterions, optimizer, 
               scheduler, dataloaders, num_epochs=10, vis=vis)
+    """
+
+    """ Test
+    """
+    #checkpoint = torch.load('./cifar10/fine-tune/weights/unsup_ckp.pth')
+
+    ##
+    # Distribution of the discrepancy of unlabeled ID and OOD samples after training the network on labeled ID samples supervisedly
+    checkpoint = torch.load('./cifar10/pre-train/weights/two_head_cifar10.pth')
+    two_head_net.load_state_dict(checkpoint['state_dict'])
+    test2(two_head_net, dataloaders, mode='unsup_train')
