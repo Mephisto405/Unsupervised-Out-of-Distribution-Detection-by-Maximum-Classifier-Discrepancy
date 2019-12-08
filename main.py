@@ -3,14 +3,14 @@
 Reference:
 [Yu et al. ICCV 2019] Unsupervised Out-of-Distribution Detection by Maximum Classifier Discrepancy (https://arxiv.org/abs/1908.04951)
 '''
+import warnings
+warnings.filterwarnings("ignore")
 
 # Python
-import os
 import random
 
 # Torch
 import torch
-import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -20,19 +20,15 @@ from torch.utils.data.sampler import SubsetRandomSampler
 # Torchvison
 from torchvision.utils import make_grid
 import torchvision.transforms as T
-from torchvision.datasets import CIFAR100, CIFAR10
-import matplotlib.pyplot as plt
-from sklearn.neighbors import KernelDensity
+from torchvision.datasets import CIFAR10, MNIST
 
 # Utils
 import visdom
-from tqdm import tqdm
 
 # Custom
 import models.densenet as densenet
 from config import *
 from data.datasets import UnsupData
-from evaluate import evaluate
 from utils import *
 
 
@@ -51,25 +47,32 @@ test_transform = T.Compose([
 ])
 
 cifar10_train = CIFAR10('../cifar10', train=True, 
-                        download=True, transform=train_transform)
+                        download=False, transform=train_transform)
 cifar10_val   = CIFAR10('../cifar10', train=False, 
-                        download=True, transform=test_transform)
+                        download=False, transform=test_transform)
 cifar10_test  = CIFAR10('../cifar10', train=False, 
-                        download=True, transform=test_transform)
-
-unsup_train = UnsupData(train=True, transform=train_transform)
-unsup_val = UnsupData(train=False, transform=test_transform)
-
+                        download=False, transform=test_transform)
+    
+#unsup_train = UnsupData(ood='../Imagenet_resize/Imagenet_resize', 
+#                        id='../cifar10', train=True, 
+#                        transform=train_transform)
+#unsup_val = UnsupData(ood='../Imagenet_resize/Imagenet_resize', 
+#                      id='../cifar10', train=False, 
+#                      transform=test_transform)
+# MNIST('../mnist', train=False, download=True) # Download MNIST test data
+unsup_train = UnsupData(ood='../mnist', id='../cifar10', train=True, transform=train_transform)
+unsup_val = UnsupData(ood='../mnist', id='../cifar10', train=False, transform=test_transform)
 
 ##
 # Main
 if __name__ == '__main__':
+    # Visdom visualizer
     vis = visdom.Visdom(server='http://localhost')
     plot_data = {'X': [], 'Y': [], 'legend': ['Loss']}
 
+    # Dataloaders
     indices = list(range(10000))
     random.Random(4).shuffle(indices)
-
     train_loader = DataLoader(cifar10_train, batch_size=BATCH,
                               shuffle=True, pin_memory=True, 
                               drop_last=True, num_workers=2)
@@ -95,15 +98,16 @@ if __name__ == '__main__':
     two_head_net = densenet.densenet_cifar().cuda()
     torch.backends.cudnn.benchmark = True
 
+    # Losses
     sup_criterion = nn.CrossEntropyLoss()
     unsup_criterion = DiscrepancyLoss
     criterions = {'sup': sup_criterion, 'unsup': unsup_criterion}
 
     """ Data visualization
+    """
     inputs, classes = next(iter(dataloaders['unsup_train']))
     out = make_grid(inputs)
     imshow(out, title='')
-    """
 
     """ Pre-training
     optimizer = optim.SGD(two_head_net.parameters(), lr=LR, 
@@ -112,9 +116,11 @@ if __name__ == '__main__':
 
     train(two_head_net, criterions, optimizer, 
           scheduler, dataloaders, EPOCH, vis, plot_data)
+          
     acc_1, acc_2 = test(two_head_net, dataloaders, mode='sup_test')
+    print('Test acc {}, {}'.format(acc_1, acc_2)) # > 92.5
 
-    print('Test acc {}, {}'.format(acc_1, acc_2))
+    test3(two_head_net, dataloaders, mode='unsup_train')
 
     # Save a checkpoint
     torch.save({
@@ -129,37 +135,19 @@ if __name__ == '__main__':
     """
     checkpoint = torch.load('./cifar10/pre-train/weights/two_head_cifar10.pth')
     two_head_net.load_state_dict(checkpoint['state_dict'])
-
-    # acc_1, acc_2 = test(two_head_net, dataloaders, mode='sup_test')
-    # print('Test acc {}, {}'.format(acc_1, acc_2))
-    """
-    for param in two_head_net.parameters():
-        param.requires_grad = False
-    for param in two_head_net.linear1.parameters():
-        param.requires_grad = True
-    for param in two_head_net.linear2.parameters():
-        param.requires_grad = True
-
-    optimizer = optim.SGD(iter(list(two_head_net.linear1.parameters()) 
-                               + list(two_head_net.linear2.parameters())), 
-                          lr=0.01, 
-                          momentum=MOMENTUM, weight_decay=WDECAY)
-    """
+ 
     optimizer = optim.SGD(two_head_net.parameters(), 
                           lr=0.001,
                           momentum=MOMENTUM, weight_decay=WDECAY)
-    scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=MILESTONES) # In fact, the scheduler is not required
+    # the scheduler is not necessary in the fine-tuning step, but it is made just in case.
+    scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=MILESTONES) 
     
     fine_tune(two_head_net, criterions, optimizer, 
               scheduler, dataloaders, num_epochs=10, vis=vis)
 
-    """ Test
+    """ Discrepancy distribution of ID and OOD
     """
     checkpoint = torch.load('./cifar10/fine-tune/weights/unsup_ckp.pth')
-    #checkpoint = torch.load('./cifar10/pre-train/weights/two_head_cifar10.pth')
-
-    ##
-    # Distribution of the discrepancy of unlabeled ID and OOD samples after training the network on labeled ID samples supervisedly
     two_head_net.load_state_dict(checkpoint['state_dict'])
+
     test2(two_head_net, dataloaders, mode='unsup_train')
-    #test3(two_head_net, dataloaders, mode='unsup_train')

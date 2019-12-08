@@ -4,6 +4,7 @@ import random
 import os.path
 import numpy as np
 import sys
+import torch
 if sys.version_info[0] == 2:
     import cPickle as pickle
 else:
@@ -14,41 +15,29 @@ OOD = 1
 ID = 0
 
 ##
-class TINr(data.Dataset):
-    '''
-    Data source: https://github.com/facebookresearch/odin
-    '''
-
-    def __init__(self, root='../Imagenet_resize/Imagenet_resize', train=True, transform=None):
-        self.root = root
-        self.transform = transform
-        self.data = []
-        for i in range(10000):
-            img = Image.open(self.root + '/{}.jpg'.format(i)).convert(mode='RGB')
-            np_img = np.array(img)
-            self.data.append(np_img)
-        self.data = np.vstack(self.data).reshape(-1, 32, 32, 3)
-        if train:
-            self.data = self.data[:9000]
-        else:
-            self.data = self.data[9000:]
-    
-    def __len__(self):
-        return len(self.data)
-    
-    def __getitem__(self, index):
-        img = self.data[index]
-        if self.transform is not None:
-            img = self.transform(img)
-        return img, OOD
-
-##
 class UnsupData(data.Dataset):
 
-    base_folder = 'cifar-10-batches-py'
+    """ 
+    This code (esp. __init__ fuction) may need to be modified for your dataset.
 
-    def __init__(self, ood='../Imagenet_resize/Imagenet_resize', 
-                 id='../cifar10', train=True, transform=None):
+    The training set can be used in the test session due to the unsupervised nature.
+    
+    The validation set should not be used in the test session.
+
+    Training set - 9000 from a *test* set of OOD + 9000 from a *test* set of ID.
+
+    Validation set - remainings from a *test* set of OOD + remainings from a *test* set of ID.
+
+    Args:
+        ood (string): Directory of the out-of-distribution
+        id (string): Directory of the in-distribution
+        train (bool, optional): If True, creates dataset as a training set, otherwise  
+            creates as a validation set. 
+        transform (collable, optional): A function/transform that takes in an PIL image  
+            and returns a transformed version. E.g., `transforms.RandomHorizontalFlip`
+    """
+
+    def __init__(self, ood, id, train=True, transform=None):
         self.ood = ood
         self.id = id
         self.transform = transform
@@ -56,21 +45,34 @@ class UnsupData(data.Dataset):
         self.targets = []
 
         # Out-of-distribution
-        for i in range(10000):
-            img = Image.open(self.ood + '/{}.jpg'.format(i)).convert(mode='RGB')
-            np_img = np.array(img)
-            self.data.append(np_img)
-            self.targets.append(OOD)
-        self.data = np.vstack(self.data).reshape(-1, 32, 32, 3)
-        if train:
-            self.data = self.data[:9000]
-            self.targets = self.targets[:9000]
+        if 'Imagenet' in ood:
+            for i in range(10000):
+                img = Image.open(self.ood + '/{}.jpg'.format(i)).convert(mode='RGB')
+                np_img = np.array(img)
+                self.data.append(np_img)
+                self.targets.append(OOD)
+            self.data = np.vstack(self.data).reshape(-1, 32, 32, 3)
+            if train:
+                self.data = self.data[:9000]
+                self.targets = self.targets[:9000]
+            else:
+                self.data = self.data[9000:]
+                self.targets = self.targets[9000:]
+        elif 'mnist' in ood:
+            self.data, _ = torch.load(os.path.join(self.ood, 'MNIST', 'processed', 'test.pt'))
+            self.data = self.data.reshape(-1, 1, 28, 28).repeat(1, 3, 1, 1).float() / 255.0
+            self.data = torch.nn.functional.interpolate(self.data, 32, mode='bilinear')
+            self.data = (self.data * 255.0).to(torch.uint8).numpy().transpose((0, 2, 3, 1))
+            if train:
+                self.data = self.data[:9000]
+            else:
+                self.data = self.data[9000:]
+            self.targets += [OOD for i in range(len(self.data))]
         else:
-            self.data = self.data[9000:]
-            self.targets = self.targets[9000:]
+            raise NotImplementedError('')
 
         # In-distribution
-        file_path = os.path.join(self.id, self.base_folder, 'test_batch')
+        file_path = os.path.join(self.id, 'cifar-10-batches-py', 'test_batch')
         with open(file_path, 'rb') as f:
             if sys.version_info[0] == 2:
                 entry = pickle.load(f)

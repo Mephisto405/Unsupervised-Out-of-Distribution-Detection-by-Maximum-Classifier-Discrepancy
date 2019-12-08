@@ -31,6 +31,7 @@ from evaluate import evaluate
 # Train Utils
 iters = 0
 
+#
 def DiscrepancyLoss(input_1, input_2, m = 1.2):
     soft_1 = nn.functional.softmax(input_1, dim=1)
     soft_2 = nn.functional.softmax(input_2, dim=1)
@@ -83,6 +84,12 @@ def train_epoch(model, criterions, optimizer, scheduler, dataloaders, num_epochs
 
 #
 def test(model, dataloaders, mode='sup_val'):
+    """
+    Test the baseline two-headed network right after the the supervised pre-training step.
+
+    Sanity check:
+        The accuracy will be higher than 92.5 at least.
+    """
     assert mode == 'sup_val' or mode == 'sup_test'
     model.eval()
 
@@ -106,6 +113,9 @@ def test(model, dataloaders, mode='sup_val'):
 
 # 
 def train(model, criterions, optimizer, scheduler, dataloaders, num_epochs, vis, plot_data):
+    """
+    Supervised training step.
+    """
     print('>> Train a Model.')
     best_acc = 0.
     checkpoint_dir = os.path.join('./cifar10', 'pre-train', 'weights')
@@ -133,6 +143,9 @@ def train(model, criterions, optimizer, scheduler, dataloaders, num_epochs, vis,
 
 #
 def fine_tune(model, criterions, optimizer, scheduler, dataloaders, num_epochs=10, vis=None):
+    """
+    Unsupervised fine-tuning step with supervised guidance.
+    """
     print('>> Fine-tune a Model.')
     best_roc = 0.0
     checkpoint_dir = os.path.join('./cifar10', 'fine-tune', 'weights')
@@ -156,21 +169,11 @@ def fine_tune(model, criterions, optimizer, scheduler, dataloaders, num_epochs=1
             # unsup_labels = unsup_data[1].cuda()
             iters += 1
 
-            # step A
-            """
             optimizer.zero_grad()
             out_1, out_2 = model(sup_inputs)
-            loss_sup = criterions['sup'](out_1, sup_labels) + criterions['sup'](out_2, sup_labels)
-            loss_sup.backward()
-            optimizer.step()
-            """
-            
-            # step B
-            optimizer.zero_grad()
-            out_1, out_2 = model(sup_inputs)
-            loss_sup = criterions['sup'](out_1, sup_labels) + criterions['sup'](out_2, sup_labels)
+            loss_sup = criterions['sup'](out_1, sup_labels) + criterions['sup'](out_2, sup_labels) # Step A
             out_1, out_2 = model(unsup_inputs)
-            loss_unsup = criterions['unsup'](out_1, out_2)
+            loss_unsup = criterions['unsup'](out_1, out_2) # Step B
             loss = loss_unsup + loss_sup
             loss.backward()
             optimizer.step()
@@ -229,6 +232,13 @@ def fine_tune(model, criterions, optimizer, scheduler, dataloaders, num_epochs=1
 
 #
 def test3(model, dataloaders, mode='unsup_train'):
+    """
+    Entropy distribution of ID and OOD just after the supervised pre-training step.
+
+    Sanity check:
+        The entropy of ID sample should be nearly 0 (i.e., the fully-trained model is confident for ID).
+        The entropy of OOD sample should be higher than 0 (i.e., not confident for OOD).
+    """
     model.eval()
     if mode == 'unsup_train':
         num = 18000
@@ -275,8 +285,16 @@ def test3(model, dataloaders, mode='unsup_train'):
 
         return roc
 
-#
+
 def test2(model, dataloaders, mode='unsup_train'):
+    """
+    Discrepancy distribution of ID and OOD.
+
+    Sanity check:
+        The discrepancy of ID sample should be nearly 0 (i.e., both classifiers make similar predictions.).
+        The discrepancy of OOD sample should be around `2.0 - 2/Num_of_Classes`.
+        See section 3.3 for more information about the intuition behind `2.0 - 2/Num_of_Classes`
+    """
     model.eval()
     if mode == 'unsup_train':
         num = 18000
@@ -327,10 +345,12 @@ def test2(model, dataloaders, mode='unsup_train'):
         return roc
 
 
-""" Image show
-Reference: https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
-"""
 def imshow(inp, title=None):
+    """ 
+    Image show
+    
+    Reference: https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
+    """
     inp = inp.numpy().transpose((1, 2, 0))
     mean = np.array([0.485, 0.456, 0.406])
     std = np.array([0.229, 0.224, 0.225])

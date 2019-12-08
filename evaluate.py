@@ -8,6 +8,12 @@ from matplotlib import rc
 
 #
 def evaluate(labels, scores, metric='roc'):
+    """
+    Args:
+        labels (array-like)
+        scores (array-like)
+        metric (string, optional): `roc`(AUROC) or `best f1`
+    """
     if metric == 'roc':
         return roc(labels, scores)
     elif metric == 'best f1':
@@ -17,7 +23,8 @@ def evaluate(labels, scores, metric='roc'):
 
 #
 def best_f1(labels, scores):
-    """ Evaluate the best F1 score
+    """ 
+    Evaluate the best F1 score
 
     Returns:
         best, acc, sens, spec: the best F1 score, accuracy, sensitivity, specificity
@@ -56,7 +63,8 @@ def best_f1(labels, scores):
 
 #
 def roc(labels, scores, saveto='./'):
-    """ Evaluate ROC
+    """ 
+    Evaluate ROC
 
     Returns:
         auc, eer: Area under the curve, Equal Error Rate

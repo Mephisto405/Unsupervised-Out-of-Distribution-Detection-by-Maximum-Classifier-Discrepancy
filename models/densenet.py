@@ -67,6 +67,9 @@ class DenseNet(nn.Module):
         num_planes += nblocks[3]*growth_rate
 
         self.bn = nn.BatchNorm2d(num_planes)
+
+        ##
+        # Two-headed Network
         self.linear1 = nn.Linear(num_planes, num_classes)
         self.linear2 = nn.Linear(num_planes, num_classes)
 
@@ -85,6 +88,9 @@ class DenseNet(nn.Module):
         out = self.dense4(out)
         out = F.avg_pool2d(F.relu(self.bn(out)), 4)
         out = out.view(out.size(0), -1)
+
+        ##
+        # Two-headed Network
         out_1 = self.linear1(out)
         out_2 = self.linear2(out)
         return out_1, out_2
