@@ -123,3 +123,4 @@ dmypy.json
 .pyre/
 *.zip
 *.pth
+cifar10/
