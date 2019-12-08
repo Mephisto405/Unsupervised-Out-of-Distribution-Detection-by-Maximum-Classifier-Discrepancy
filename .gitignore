@@ -122,6 +122,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 *.zip
-*.pth
 cifar10/
 *.json
