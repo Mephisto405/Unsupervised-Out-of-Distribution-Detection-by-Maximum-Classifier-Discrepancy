@@ -1,15 +1,9 @@
 # Unsupervised Out-of-Distribution Detection by Maximum Classifier Discrepancy
  Reproducing experimental results of OOD-by-MCD [Yu and Aizawa, ICCV 2019]
 
-*FIY*
+*FIY*: I am not the author of this paper. I'm just a master student interested in computer graphics and machine learning. Enjoy this reproduced code. If you have any questions or requests (especially for copyright), please do not hesitate to contact me.
 
-I am not the author of this paper. I'm just a master student interested in computer graphics and machine learning. Enjoy this reproduced code. 
-
-If you have any questions or requests (especially for copyright), please do not hesitate to contact me.
-
-*Disclaimer*
-
-Since the description of the fine-tuning procedure is ambiguous and not sufficient to write code that reproduces the reported results, I repeated experiments several times with a variety of tweaks on my own. The main difference is that in the fine-tuning step, I set the learning rate to 0.001 instead of the reported value (0.1). Besides, since it was unclear whether the loss formula (3) used in the fine-tuning step is the aggregated loss of step A and step B or the loss used only in step B, I just chose the former empirically (see the fine_tune function in utils.py).
+*Disclaimer*: Since the description of the fine-tuning procedure in the original paper is ambiguous and not sufficient for me to write code that reproduces the reported results, I repeated experiments several times with a variety of tweaks on my own. The main difference is that in the fine-tuning step, I set the learning rate to 0.001 instead of the reported value (0.1). Besides, since it was unclear whether the loss formula (3) used in the fine-tuning step is the aggregated loss of step A and step B or the loss used only in step B, I just chose the former empirically (see the fine_tune function in utils.py).
 
 ## Reproduced Results
  DenseNet-BC(L=100, k=12), ID = CIFAR-10, OOD = TinyImageNet(resized ver.)
