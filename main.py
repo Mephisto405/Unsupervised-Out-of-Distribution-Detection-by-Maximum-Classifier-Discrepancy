@@ -26,7 +26,7 @@ from torchvision.datasets import CIFAR10, MNIST
 import visdom
 
 # Custom
-import models.densenet as densenet
+import backbone.densenet as densenet
 from config import *
 from data.datasets import UnsupData
 from utils import *
@@ -128,12 +128,12 @@ if __name__ == '__main__':
         'accuracy': (acc_1 + acc_2) / 2,
         'state_dict': two_head_net.state_dict()
     },
-    './cifar10/pre-train/weights/two_head_cifar10.pth')
+    './ckp_weights/pre-train/weights/two_head_cifar10.pth')
     """
 
     """ Fine-tuning
     """
-    checkpoint = torch.load('./cifar10/pre-train/weights/two_head_cifar10.pth')
+    checkpoint = torch.load('./ckp_weights/pre-train/weights/two_head_cifar10.pth')
     two_head_net.load_state_dict(checkpoint['state_dict'])
  
     optimizer = optim.SGD(two_head_net.parameters(), 
@@ -147,7 +147,7 @@ if __name__ == '__main__':
 
     """ Discrepancy distribution of ID and OOD
     """
-    checkpoint = torch.load('./cifar10/fine-tune/weights/unsup_ckp.pth')
+    checkpoint = torch.load('./ckp_weights/fine-tune/weights/unsup_ckp.pth')
     two_head_net.load_state_dict(checkpoint['state_dict'])
 
     test2(two_head_net, dataloaders, mode='unsup_train')

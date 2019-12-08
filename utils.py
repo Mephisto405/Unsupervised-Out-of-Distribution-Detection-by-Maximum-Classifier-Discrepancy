@@ -22,7 +22,7 @@ import visdom
 from tqdm import tqdm
 
 # Custom
-import models.densenet as densenet
+import backbone.densenet as densenet
 from config import *
 from data.datasets import UnsupData
 from evaluate import evaluate
@@ -118,7 +118,7 @@ def train(model, criterions, optimizer, scheduler, dataloaders, num_epochs, vis,
     """
     print('>> Train a Model.')
     best_acc = 0.
-    checkpoint_dir = os.path.join('./cifar10', 'pre-train', 'weights')
+    checkpoint_dir = os.path.join('./ckp_weights', 'pre-train', 'weights')
     if not os.path.exists(checkpoint_dir):
         os.makedirs(checkpoint_dir)
     
@@ -148,7 +148,7 @@ def fine_tune(model, criterions, optimizer, scheduler, dataloaders, num_epochs=1
     """
     print('>> Fine-tune a Model.')
     best_roc = 0.0
-    checkpoint_dir = os.path.join('./cifar10', 'fine-tune', 'weights')
+    checkpoint_dir = os.path.join('./ckp_weights', 'fine-tune', 'weights')
     model_name = 'unsup_ckp'
     if not os.path.exists(checkpoint_dir):
         os.makedirs(checkpoint_dir)
@@ -280,7 +280,7 @@ def test3(model, dataloaders, mode='unsup_train'):
         ax.set_xlim(discs.min(), discs.max())
         ax.legend(loc='upper right')
 
-        fig.savefig('./entropy distribution.png', dpi=400)
+        fig.savefig('./figures/entropy distribution.png', dpi=400)
         plt.close(fig)
 
         return roc
@@ -339,7 +339,7 @@ def test2(model, dataloaders, mode='unsup_train'):
         ax.set_xlim(0.0, discs.max())
         ax.legend(loc='upper right')
 
-        fig.savefig('./score distribution.png', dpi=400)
+        fig.savefig('./figures/score distribution.png', dpi=400)
         plt.close(fig)
 
         return roc

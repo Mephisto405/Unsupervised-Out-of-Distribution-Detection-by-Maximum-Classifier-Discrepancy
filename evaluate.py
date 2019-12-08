@@ -62,7 +62,7 @@ def best_f1(labels, scores):
     return best, acc, sens, spec, best_threshold
 
 #
-def roc(labels, scores, saveto='./'):
+def roc(labels, scores, saveto='./figures'):
     """ 
     Evaluate ROC
 
