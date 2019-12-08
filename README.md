@@ -8,13 +8,13 @@
 ## Reproduced Results
  DenseNet-BC(L=100, k=12), ID = CIFAR-10, OOD = TinyImageNet(resized ver.)
 
- ![Discrepancy Distribution of ID and OOD](./figures/fig3.png)
-
  ![AUROC](./figures/fig4.png)
 
- ![Discrepancy Distribution and Receiver Operating Characteristic (OOD = MNIST)](./figures/fig5.png)
+ ![Discrepancy Distribution of ID and OOD](./figures/fig3.png)
 
- ![Entropy Distribution of Outputs of the Pre-trained Network (OOD = MNIST)](./figures/entropy_distribution.png)
+ ![Entropy Distribution of Outputs of the Pre-trained Network](./figures/entropy_distribution.png)
+
+ ![Discrepancy Distribution and Receiver Operating Characteristic (OOD = MNIST)](./figures/fig5.png)
 
 ## Requirements
  torch >= 1.1.0
