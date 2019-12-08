@@ -76,7 +76,7 @@ class UnsupData(data.Dataset):
                 entry = pickle.load(f)
             else:
                 entry = pickle.load(f, encoding='latin1')
-            tmp = entry['data'].reshape(-1, 32, 32, 3)
+            tmp = entry['data'].reshape(-1, 3, 32, 32).transpose((0, 2, 3, 1))
             if train:
                 tmp = tmp[:9000]
             else:
@@ -95,7 +95,7 @@ class UnsupData(data.Dataset):
         return len(self.data)
     
     def __getitem__(self, index):
-        img = self.data[index]
+        img = Image.fromarray(self.data[index])
         if self.transform is not None:
             img = self.transform(img)
 
